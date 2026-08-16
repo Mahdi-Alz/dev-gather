@@ -1,4 +1,4 @@
-import { Schema, model, models, Document } from 'mongoose';
+import { Schema, model, models, Document, Model, Types } from 'mongoose';
 
 // TypeScript interface for Event document
 export interface IEvent extends Document {
@@ -30,7 +30,6 @@ const EventSchema = new Schema<IEvent>(
     },
     slug: {
       type: String,
-      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -110,12 +109,16 @@ const EventSchema = new Schema<IEvent>(
 );
 
 // Pre-save hook for slug generation and data normalization
-EventSchema.pre('save', function () {
+EventSchema.pre('save', async function () {
   const event = this as IEvent;
 
   // Generate slug only if title changed or document is new
   if (event.isModified('title') || event.isNew) {
-    event.slug = generateSlug(event.title);
+    event.slug = await uniqueSlug(
+      generateSlug(event.title),
+      event.constructor as Model<IEvent>,
+      event._id
+    );
   }
 
   // Normalize date to ISO format if it's not already
@@ -138,6 +141,25 @@ function generateSlug(title: string): string {
     .replace(/\s+/g, '-') // Replace spaces with hyphens
     .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+}
+
+// Append a numeric suffix until the slug is free (e.g. test, test-2, test-3)
+async function uniqueSlug(
+  base: string,
+  EventModel: Model<IEvent>,
+  currentId: Types.ObjectId
+): Promise<string> {
+  let slug = base;
+  let suffix = 1;
+
+  while (
+    await EventModel.exists({ slug, _id: { $ne: currentId } })
+  ) {
+    suffix += 1;
+    slug = `${base}-${suffix}`;
+  }
+
+  return slug;
 }
 
 // Helper function to normalize date to ISO format

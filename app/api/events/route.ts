@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb";
 import { v2 as cloudinary } from "cloudinary";
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import Event from "@/database/event.model";
 
 export async function POST(req: NextRequest) {
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
       tags: tags,
       agenda: agenda,
     });
+    revalidateTag("events", "hours");
     return NextResponse.json(
       { message: "Event created successfully", event: createdEvent },
       { status: 201 },
@@ -70,6 +72,14 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     // the whole posting event catch
     console.error(e);
+
+    if (typeof e === "object" && e !== null && "code" in e && e.code === 11000) {
+      return NextResponse.json(
+        { message: "An event with this title already exists" },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json(
       {
         message: "Event Creation Failed",
