@@ -101,8 +101,9 @@ export async function GET() {
       { status: 200 },
     );
   } catch (e) {
+    console.error("GET /api/events failed:", e);
     return NextResponse.json(
-      { message: "Event fetching failed", error: e },
+      { message: "Event fetching failed" },
       { status: 500 },
     );
   }
